@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#111827" />
+<title>点货助手</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#111827;background:#f3f4f6}
+*{box-sizing:border-box} body{margin:0} .app{max-width:720px;margin:auto;padding:16px 14px 90px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px}.top h1{font-size:24px;margin:8px 0}.pill{background:#111827;color:#fff;border-radius:999px;padding:8px 12px;font-weight:700;font-size:13px}.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}.stat{background:white;border-radius:18px;padding:16px;box-shadow:0 2px 10px #0000000b}.num{font-size:30px;font-weight:800}.label{color:#6b7280;font-size:13px}.card{background:white;border-radius:18px;padding:14px;margin:12px 0;box-shadow:0 2px 10px #0000000b}.btn{border:0;border-radius:14px;padding:14px 16px;font-size:16px;font-weight:750;cursor:pointer}.primary{background:#111827;color:white;width:100%;font-size:18px;padding:16px}.secondary{background:#e5e7eb}.danger{background:#fee2e2;color:#991b1b}.row{display:flex;gap:8px;align-items:center}.row>*{min-width:0}.manual{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px}.manual input,.search{width:100%;border:1px solid #d1d5db;border-radius:13px;padding:13px;font-size:16px}.item{display:grid;grid-template-columns:1fr auto;gap:10px;padding:13px 0;border-bottom:1px solid #eee}.item:last-child{border:0}.code{font-weight:800;word-break:break-all}.meta{color:#6b7280;font-size:13px;margin-top:3px}.qty{font-size:24px;font-weight:850;text-align:center;min-width:44px}.controls{display:flex;gap:6px;align-items:center}.mini{width:40px;height:40px;border:0;border-radius:12px;background:#f3f4f6;font-size:21px;font-weight:800}.mini.del{font-size:15px;color:#991b1b;background:#fee2e2}.empty{text-align:center;color:#6b7280;padding:28px 8px}.toolbar{display:grid;grid-template-columns:1fr 1fr;gap:8px}.notice{font-size:13px;color:#6b7280;line-height:1.45}.scanwrap{display:none;margin-top:12px}.scanwrap.open{display:block}#reader{overflow:hidden;border-radius:14px}.last{margin-top:10px;font-size:14px;font-weight:700;color:#047857}.footer{position:fixed;bottom:0;left:0;right:0;background:#ffffffee;backdrop-filter:blur(10px);border-top:1px solid #e5e7eb;padding:10px 14px calc(10px + env(safe-area-inset-bottom))}.footerin{max-width:720px;margin:auto;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+</style>
+</head>
+<body><div class="app">
+<div class="top"><h1>📦 点货助手</h1><div class="pill" id="sessionDate"></div></div>
+<div class="stats"><div class="stat"><div class="num" id="skuCount">0</div><div class="label">SKU / Barcode</div></div><div class="stat"><div class="num" id="pieceCount">0</div><div class="label">总件数</div></div></div>
+<div class="card"><button class="btn primary" id="scanBtn">📷 开始扫描 Barcode</button><div class="scanwrap" id="scanwrap"><div id="reader"></div><div class="last" id="lastScan"></div></div><div class="manual"><input id="manualCode" inputmode="text" autocomplete="off" placeholder="或手动输入 / 扫描枪输入 Barcode"><button class="btn secondary" id="addBtn">+1</button></div><p class="notice">每扫一次，同一个 Barcode 会自动 +1。资料会自动保存在这台设备。</p></div>
+<input class="search" id="search" placeholder="🔎 搜索 Barcode / 商品名称">
+<div class="card" id="list"><div class="empty">还没有点货记录。<br>扫第一件商品开始。</div></div>
+<div class="toolbar"><button class="btn secondary" id="exportBtn">⬇️ 导出 CSV</button><button class="btn danger" id="clearBtn">🗑️ 新一轮盘点</button></div>
+</div>
+<div class="footer"><div class="footerin"><button class="btn secondary" id="undoBtn">↩️ 撤销上一次</button><button class="btn primary" id="scanBtn2">📷 扫描</button></div></div>
+<script>
+const KEY='stockCountApp_v1'; let data=JSON.parse(localStorage.getItem(KEY)||'{}'); let history=[]; let scanner=null; let scanning=false;
+const $=id=>document.getElementById(id); $('sessionDate').textContent=new Date().toLocaleDateString('zh-CN');
+function save(){localStorage.setItem(KEY,JSON.stringify(data));render()}
+function beep(){try{navigator.vibrate&&navigator.vibrate(60);const A=window.AudioContext||window.webkitAudioContext;const c=new A(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=880;g.gain.value=.08;o.start();o.stop(c.currentTime+.08)}catch(e){}}
+function add(code){code=(code||'').trim();if(!code)return; if(!data[code]) data[code]={qty:0,name:''}; data[code].qty++; history.push(code); $('lastScan').textContent='✓ '+code+'  →  '+data[code].qty+' 件'; beep(); save();}
+function change(code,d){if(!data[code])return;data[code].qty+=d;if(data[code].qty<=0)delete data[code];save()}
+function del(code){delete data[code];save()}
+function render(){const q=$('search').value.toLowerCase();const rows=Object.entries(data).filter(([c,v])=>c.toLowerCase().includes(q)||(v.name||'').toLowerCase().includes(q)).sort((a,b)=>b[1].qty-a[1].qty);$('skuCount').textContent=Object.keys(data).length;$('pieceCount').textContent=Object.values(data).reduce((s,v)=>s+v.qty,0);$('list').innerHTML=rows.length?rows.map(([c,v])=>`<div class="item"><div><div class="code">${esc(c)}</div><div class="meta">${v.name?esc(v.name):'未设商品名称'}</div></div><div class="controls"><button class="mini" onclick='change(${JSON.stringify(c)},-1)'>−</button><div class="qty">${v.qty}</div><button class="mini" onclick='change(${JSON.stringify(c)},1)'>+</button><button class="mini del" onclick='del(${JSON.stringify(c)})'>删除</button></div></div>`).join(''):'<div class="empty">没有记录。</div>'}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+async function toggleScan(){if(scanning){await stopScan();return} $('scanwrap').classList.add('open');scanner=new Html5Qrcode('reader');try{await scanner.start({facingMode:'environment'},{fps:12,qrbox:{width:280,height:140}},decoded=>{add(decoded);},()=>{});scanning=true;$('scanBtn').textContent='⏹️ 停止扫描';}catch(e){$('lastScan').textContent='无法开启相机。请确认使用 HTTPS，并允许相机权限。';}}
+async function stopScan(){if(scanner&&scanning){try{await scanner.stop();scanner.clear()}catch(e){} }scanning=false;$('scanBtn').textContent='📷 开始扫描 Barcode';$('scanwrap').classList.remove('open')}
+$('scanBtn').onclick=toggleScan;$('scanBtn2').onclick=toggleScan;$('addBtn').onclick=()=>{add($('manualCode').value);$('manualCode').value='';$('manualCode').focus()};$('manualCode').addEventListener('keydown',e=>{if(e.key==='Enter')$('addBtn').click()});$('search').oninput=render;$('undoBtn').onclick=()=>{const c=history.pop();if(c)change(c,-1)};
+$('clearBtn').onclick=()=>{if(confirm('确定开始新一轮盘点？目前记录会被清空。')){data={};history=[];save()}};
+$('exportBtn').onclick=()=>{const rows=[['Barcode','商品名称','数量'],...Object.entries(data).map(([c,v])=>[c,v.name||'',v.qty])];const csv='\uFEFF'+rows.map(r=>r.map(x=>'"'+String(x).replaceAll('"','""')+'"').join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='stock-count-'+new Date().toISOString().slice(0,10)+'.csv';a.click();URL.revokeObjectURL(a.href)};
+render();
+</script></body></html>
